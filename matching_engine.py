@@ -10,26 +10,22 @@ Preferences = Dict[str, List[str]]
 MALE_KOREAN_NAMES = [
     "민준", "서준", "도윤", "예준", "시우", "하준", "주원", "지호",
     "지후", "준우", "현우", "도현", "건우", "우진", "선우", "유준",
-    "은우", "연우", "이준", "지안"
+    "은우", "연우", "이준", "지안", "태오", "윤재", "서진", "재원"
 ]
 
 FEMALE_KOREAN_NAMES = [
     "서연", "서윤", "지우", "하은", "민서", "지유", "윤서", "채원",
     "수아", "지아", "지민", "은서", "예은", "다은", "하윤", "소율",
-    "예린", "유나", "나은", "서현"
+    "예린", "유나", "나은", "서현", "아린", "유진", "다연", "채은"
 ]
 
 
 def generate_people(n: int, seed: int | None = None) -> Tuple[List[str], List[str]]:
-    """Generate Korean display names for both sides."""
     rng = random.Random(seed)
-
     if n > len(MALE_KOREAN_NAMES) or n > len(FEMALE_KOREAN_NAMES):
         raise ValueError("n is larger than the prepared Korean name pool.")
-
     men = rng.sample(MALE_KOREAN_NAMES, n)
     women = rng.sample(FEMALE_KOREAN_NAMES, n)
-
     return men, women
 
 
@@ -39,14 +35,14 @@ def generate_preferences(
     name_seed: int | None = None,
 ) -> Tuple[List[str], List[str], Preferences, Preferences]:
     """
-    Generate random complete preference rankings for a balanced two-sided matching problem.
+    Generate random complete preference rankings.
 
-    - name_seed controls the Korean names.
-    - seed controls the preference order.
-    This lets the UI reshuffle preferences while keeping the same people.
+    name_seed: fixes the participant names.
+    seed: fixes only the preference order.
+
+    This separation allows the app to reshuffle preferences while keeping names.
     """
     rng = random.Random(seed)
-
     men, women = generate_people(n, seed=name_seed)
 
     men_prefs: Preferences = {}
@@ -66,7 +62,6 @@ def generate_preferences(
 
 
 def make_rankings(prefs: Preferences) -> Dict[str, Dict[str, int]]:
-    """Convert preference lists into rank maps. Lower rank is better."""
     return {
         person: {candidate: rank for rank, candidate in enumerate(pref_list)}
         for person, pref_list in prefs.items()
@@ -74,11 +69,11 @@ def make_rankings(prefs: Preferences) -> Dict[str, Dict[str, int]]:
 
 
 def is_complete_one_to_one(matching: Matching, men: List[str], women: List[str]) -> Tuple[bool, str]:
-    """Check whether every man is matched to a distinct woman."""
     if set(matching.keys()) != set(men):
         return False, "왼쪽 그룹의 모든 사람이 매칭되어야 합니다."
 
     selected = list(matching.values())
+
     if any(w not in women for w in selected):
         return False, "선택한 상대 중 올바르지 않은 항목이 있습니다."
 
@@ -100,13 +95,6 @@ def find_blocking_pairs(
     men_prefs: Preferences,
     women_prefs: Preferences,
 ) -> List[Dict[str, Any]]:
-    """
-    Return all blocking pairs.
-
-    A pair (m, w) blocks the matching if:
-    - m prefers w to his current partner, and
-    - w prefers m to her current partner.
-    """
     men_rank = make_rankings(men_prefs)
     women_rank = make_rankings(women_prefs)
     woman_to_man = invert_matching(matching)
@@ -145,15 +133,6 @@ def is_stable(matching: Matching, men_prefs: Preferences, women_prefs: Preferenc
 
 
 def satisfaction_score(matching: Matching, men_prefs: Preferences, women_prefs: Preferences) -> int:
-    """
-    Higher is better.
-
-    If there are n partners on each side:
-    - 1st choice gives n points
-    - 2nd choice gives n-1 points
-    - ...
-    - nth choice gives 1 point
-    """
     n = len(matching)
     men_rank = make_rankings(men_prefs)
     women_rank = make_rankings(women_prefs)
@@ -188,7 +167,6 @@ def find_best_stable_matching(
     men_prefs: Preferences,
     women_prefs: Preferences,
 ) -> Tuple[Matching | None, int | None, List[Matching]]:
-    """Find the stable matching with the highest total satisfaction score."""
     candidates = stable_matchings(men, women, men_prefs, women_prefs)
 
     if not candidates:
@@ -207,7 +185,6 @@ def gale_shapley_men_propose(
     men_prefs: Preferences,
     women_prefs: Preferences,
 ) -> Tuple[Matching, List[str]]:
-    """Run the classic men-proposing Gale-Shapley algorithm."""
     women_rank = make_rankings(women_prefs)
 
     free_men = men[:]
@@ -231,7 +208,7 @@ def gale_shapley_men_propose(
 
         if w not in held_by_woman:
             held_by_woman[w] = m
-            log.append(f"{w}은/는 아직 제안을 보류 중인 상대가 없으므로 {m}의 제안을 임시로 받아들입니다.")
+            log.append(f"{w}은/는 아직 보류 중인 상대가 없으므로 {m}의 제안을 임시로 받아들입니다.")
         else:
             current_m = held_by_woman[w]
 
@@ -247,10 +224,6 @@ def gale_shapley_men_propose(
 
     matching = {m: w for w, m in held_by_woman.items()}
     return matching, log
-
-
-def matching_equals(a: Matching, b: Matching) -> bool:
-    return a == b
 
 
 def explain_matching(matching: Matching) -> str:

@@ -1,84 +1,20 @@
-# Stable Match Lab
+# Stable Match Lab v2.1 fixed
 
-Stable Match Lab is a small Streamlit-based puzzle game for learning matching theory.
+이 버전은 다음 오류를 방지하기 위해 `app.py`와 `matching_engine.py`를 함께 맞춘 수정본입니다.
 
-Players build one-to-one matchings, avoid blocking pairs, search for optimal stable matchings, and predict the men-proposing Gale-Shapley outcome.
+- 한국 이름 사용
+- 선호도 랜덤 변경
+- 한국어 UI
+- `generate_preferences(..., name_seed=...)` 지원
 
-## Features
-
-- Stage 1 — Stable Matching
-  - Clear the puzzle by creating a complete matching with no blocking pairs.
-
-- Stage 2 — Optimal Stable Matching
-  - Find a stable matching with the highest total satisfaction score.
-
-- Stage 3 — Gale-Shapley Challenge
-  - Predict the result of the men-proposing Gale-Shapley algorithm.
-
-## Local Setup
-
-```bash
-git clone <your-repo-url>
-cd stable-match-lab
-python -m venv .venv
-```
-
-### Windows PowerShell
-
-```bash
-.venv\Scripts\Activate.ps1
-```
-
-### macOS / Linux
-
-```bash
-source .venv/bin/activate
-```
-
-Then install dependencies:
+## 실행
 
 ```bash
 pip install -r requirements.txt
-```
-
-Run the app:
-
-```bash
 streamlit run app.py
 ```
 
-## File Structure
+## GitHub 업로드 시 주의
 
-```text
-stable-match-lab/
-├─ app.py
-├─ matching_engine.py
-├─ requirements.txt
-├─ README.md
-└─ .streamlit/
-   └─ config.toml
-```
-
-## Scoring
-
-The satisfaction score is higher when participants receive higher-ranked partners.
-
-For n participants per side:
-
-- 1st choice = n points
-- 2nd choice = n - 1 points
-- ...
-- nth choice = 1 point
-
-Stage 2 compares the player's stable matching against the best stable matching under this total satisfaction score.
-
-## Notes
-
-This is an MVP. Good next upgrades:
-
-- Drag-and-drop pair creation
-- Animated Gale-Shapley simulation
-- Level progression
-- Saved records
-- Custom named participants
-- Korean/English language toggle
+반드시 `app.py`와 `matching_engine.py`를 둘 다 교체하세요.
+둘 중 하나만 교체하면 함수 인자 불일치로 오류가 날 수 있습니다.
