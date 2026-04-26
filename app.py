@@ -78,7 +78,7 @@ div[data-testid="stVerticalBlock"] {
 }
 
 .stage-card {
-    min-height: 255px;
+    min-height: 275px;
     padding: 1.35rem;
     border-radius: 24px;
     background: var(--card);
@@ -322,7 +322,8 @@ def init_state():
     defaults = {
         "view": "home",
         "stage": 1,
-        "seed": 100,
+        "pref_seed": 100,
+        "name_seed": 777,
         "n": 4,
         "submitted": False,
         "show_solution": False,
@@ -334,58 +335,75 @@ def init_state():
             st.session_state[key] = value
 
 
-def start_stage(stage: int):
-    st.session_state.stage = stage
-    st.session_state.view = "game"
+def clear_choice_state():
+    keys_to_delete = [
+        key for key in st.session_state.keys()
+        if key.startswith("match_")
+    ]
+    for key in keys_to_delete:
+        del st.session_state[key]
+
     st.session_state.submitted = False
     st.session_state.show_solution = False
     st.session_state.show_hint = False
+
+
+def start_stage(stage: int):
+    st.session_state.stage = stage
+    st.session_state.view = "game"
+    clear_choice_state()
     st.rerun()
 
 
 def new_puzzle():
-    st.session_state.seed += 1
-    st.session_state.submitted = False
-    st.session_state.show_solution = False
-    st.session_state.show_hint = False
+    st.session_state.pref_seed += 1
+    st.session_state.name_seed += 1
+    clear_choice_state()
+    st.rerun()
+
+
+def reshuffle_preferences():
+    st.session_state.pref_seed += 1
+    clear_choice_state()
     st.rerun()
 
 
 def back_home():
     st.session_state.view = "home"
-    st.session_state.submitted = False
-    st.session_state.show_solution = False
-    st.session_state.show_hint = False
+    clear_choice_state()
     st.rerun()
 
 
 STAGE_INFO = {
     1: {
-        "title": "Stage 1 — Stable Matching",
-        "short": "Create a one-to-one matching with no blocking pairs.",
-        "goal": "모든 사람을 1:1로 연결하되, 서로 현재 파트너보다 더 선호하는 blocking pair가 없도록 만드세요.",
+        "title": "1단계 — 안정 매칭",
+        "short": "Blocking pair가 없도록 1:1 매칭을 만드세요.",
+        "goal": "모든 사람을 1:1로 연결하되, 서로 현재 파트너보다 더 선호하는 두 사람이 생기지 않도록 만드세요.",
         "clear": "성공 조건: 완전한 1:1 매칭 + blocking pair 0개",
-        "difficulty": "Beginner",
+        "difficulty": "입문",
         "icon": "🧩",
-        "tag": "Stability",
+        "tag": "안정성",
+        "button": "1단계 플레이",
     },
     2: {
-        "title": "Stage 2 — Optimal Stable Matching",
-        "short": "Find the stable matching with the highest overall satisfaction.",
-        "goal": "안정 매칭 중에서도 전체 만족도 점수가 가장 높은 매칭을 찾으세요.",
-        "clear": "성공 조건: stable matching + 최고 만족도 점수",
-        "difficulty": "Intermediate",
+        "title": "2단계 — 최적 안정 매칭",
+        "short": "안정 매칭 중 전체 만족도 점수가 가장 높은 매칭을 찾으세요.",
+        "goal": "안정 매칭은 여러 개일 수 있습니다. 그중 참가자들의 전체 만족도 점수가 가장 높은 매칭을 찾으세요.",
+        "clear": "성공 조건: 안정 매칭 + 최고 만족도 점수",
+        "difficulty": "중급",
         "icon": "🎯",
-        "tag": "Optimality",
+        "tag": "최적성",
+        "button": "2단계 플레이",
     },
     3: {
-        "title": "Stage 3 — Gale-Shapley Challenge",
-        "short": "Predict the result of the men-proposing Gale-Shapley algorithm.",
-        "goal": "남성 제안형 Gale-Shapley 알고리즘이 만드는 최종 매칭을 예측하세요.",
+        "title": "3단계 — 게일-섀플리 챌린지",
+        "short": "남성 제안형 Gale-Shapley 알고리즘의 결과를 예측하세요.",
+        "goal": "선호표를 보고, 남성들이 차례로 제안할 때 Gale-Shapley 알고리즘이 만드는 최종 매칭을 예측하세요.",
         "clear": "성공 조건: 알고리즘 결과와 정확히 같은 매칭",
-        "difficulty": "Advanced",
+        "difficulty": "고급",
         "icon": "⚙️",
-        "tag": "Algorithm",
+        "tag": "알고리즘",
+        "button": "3단계 플레이",
     },
 }
 
@@ -403,9 +421,9 @@ def stage_card(stage: int):
             </div>
             <p class="small-muted">{info["short"]}</p>
             <div class="help-box" style="margin-top:0.8rem;">
-                <b>Goal</b><br/>
+                <b>목표</b><br/>
                 {info["goal"]}<br/><br/>
-                <b>Clear</b><br/>
+                <b>성공 조건</b><br/>
                 {info["clear"]}
             </div>
         </div>
@@ -413,7 +431,7 @@ def stage_card(stage: int):
         unsafe_allow_html=True,
     )
 
-    if st.button(f"Play Stage {stage}", key=f"play_stage_{stage}", use_container_width=True):
+    if st.button(info["button"], key=f"play_stage_{stage}", use_container_width=True):
         start_stage(stage)
 
 
@@ -423,12 +441,13 @@ def render_home():
         <div class="sml-hero">
             <div class="sml-title">Stable Match Lab</div>
             <p class="sml-subtitle">
-                A small puzzle lab for matching theory. Build matchings, avoid blocking pairs,
-                compare optimal stable outcomes, and predict Gale-Shapley results through play.
+                매칭 이론을 게임처럼 익히는 작은 퍼즐 실험실입니다.
+                직접 매칭을 만들고, blocking pair를 피하고,
+                최적 안정 매칭과 Gale-Shapley 알고리즘의 결과를 탐구해보세요.
             </p>
             <div style="margin-top:1rem;">
-                <span class="pill pill-blue">Matching Theory</span>
-                <span class="pill pill-green">Puzzle Learning</span>
+                <span class="pill pill-blue">매칭 이론</span>
+                <span class="pill pill-green">퍼즐 학습</span>
                 <span class="pill pill-purple">Streamlit MVP</span>
             </div>
         </div>
@@ -445,16 +464,16 @@ def render_home():
         stage_card(3)
 
     st.markdown("<br/>", unsafe_allow_html=True)
-    with st.expander("Matching Theory quick guide"):
+    with st.expander("매칭 이론 빠른 설명"):
         st.markdown(
             """
-            **Stable matching** means that there is no pair of participants who would both rather leave their current partners and match with each other.
+            **안정 매칭 stable matching**은 현재 매칭을 깨고 서로 새롭게 짝을 이루고 싶어 하는 두 사람이 없는 매칭입니다.
 
-            **Blocking pair** is exactly such a pair. If a blocking pair exists, the current matching is unstable.
+            **Blocking pair**는 서로 현재 파트너보다 상대방을 더 선호하는 한 쌍입니다. Blocking pair가 하나라도 있으면 현재 매칭은 불안정합니다.
 
-            **Optimal stable matching** adds a second condition: among stable matchings, we choose the one with the best total satisfaction score.
+            **최적 안정 매칭**은 먼저 안정 매칭이어야 하고, 그 안정 매칭들 중 전체 만족도 점수가 가장 높은 매칭입니다.
 
-            **Gale-Shapley algorithm** is a classic algorithm that always finds a stable matching. In this app, Stage 3 asks you to predict the result of the men-proposing version.
+            **Gale-Shapley 알고리즘**은 안정 매칭을 찾는 대표적인 알고리즘입니다. 이 앱의 3단계에서는 남성 제안형 Gale-Shapley 알고리즘의 결과를 예측합니다.
             """
         )
 
@@ -497,20 +516,21 @@ def render_person_card(name: str, prefs: list[str], danger: bool = False, side: 
 
     st.markdown(card_html, unsafe_allow_html=True)
 
+
 def render_preferences(men, women, men_prefs, women_prefs, highlighted_men=None, highlighted_women=None):
     highlighted_men = highlighted_men or set()
     highlighted_women = highlighted_women or set()
 
-    st.markdown('<div class="section-title">Preference Cards</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">선호도 카드</div>', unsafe_allow_html=True)
     col_m, col_w = st.columns(2)
 
     with col_m:
-        st.markdown('<span class="pill pill-blue">Men</span>', unsafe_allow_html=True)
+        st.markdown('<span class="pill pill-blue">남성</span>', unsafe_allow_html=True)
         for m in men:
             render_person_card(m, men_prefs[m], danger=m in highlighted_men, side="M")
 
     with col_w:
-        st.markdown('<span class="pill pill-purple">Women</span>', unsafe_allow_html=True)
+        st.markdown('<span class="pill pill-purple">여성</span>', unsafe_allow_html=True)
         for w in women:
             render_person_card(w, women_prefs[w], danger=w in highlighted_women, side="W")
 
@@ -531,17 +551,21 @@ def render_stage_explanation(stage: int):
     )
 
 
+def widget_key(m):
+    return f"match_{st.session_state.stage}_{st.session_state.pref_seed}_{st.session_state.name_seed}_{m}"
+
+
 def get_matching_from_widgets(men, women):
     matching = {}
     for m in men:
-        selected = st.session_state.get(f"match_{st.session_state.stage}_{st.session_state.seed}_{m}", "—")
+        selected = st.session_state.get(widget_key(m), "—")
         if selected != "—":
             matching[m] = selected
     return matching
 
 
 def render_matching_inputs(men, women):
-    st.markdown('<div class="section-title">Build Your Matching</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">매칭 만들기</div>', unsafe_allow_html=True)
 
     left, right = st.columns([0.95, 1.05])
 
@@ -551,7 +575,7 @@ def render_matching_inputs(men, women):
             st.selectbox(
                 f"{m} ↔",
                 ["—"] + women,
-                key=f"match_{st.session_state.stage}_{st.session_state.seed}_{m}",
+                key=widget_key(m),
                 label_visibility="visible",
             )
         st.markdown("</div>", unsafe_allow_html=True)
@@ -560,14 +584,14 @@ def render_matching_inputs(men, women):
 
     with right:
         st.markdown('<div class="match-board">', unsafe_allow_html=True)
-        st.markdown("<b>Current Matching Board</b>", unsafe_allow_html=True)
+        st.markdown("<b>현재 매칭 보드</b>", unsafe_allow_html=True)
 
         for m in men:
             w = matching.get(m)
             if w:
                 st.markdown(f'<div class="pair-chip"><span>{esc(m)}</span><span>↔</span><span>{esc(w)}</span></div>', unsafe_allow_html=True)
             else:
-                st.markdown(f'<div class="pair-chip pending"><span>{esc(m)}</span><span>↔</span><span>Not matched</span></div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="pair-chip pending"><span>{esc(m)}</span><span>↔</span><span>아직 매칭 안 됨</span></div>', unsafe_allow_html=True)
 
         st.markdown("</div>", unsafe_allow_html=True)
 
@@ -583,25 +607,25 @@ def render_metrics(matching, men_prefs, women_prefs, best_score=None, gs_target=
         score_text = str(satisfaction_score(matching, men_prefs, women_prefs))
 
     best_text = "—" if best_score is None else str(best_score)
-    target_text = "Hidden" if gs_target is not None else "—"
+    target_text = "숨김" if gs_target is not None else "—"
 
     st.markdown(
         f"""
         <div class="metric-grid">
             <div class="metric-box">
-                <div class="metric-label">Matched</div>
+                <div class="metric-label">매칭 완료</div>
                 <div class="metric-value">{complete_count}/{n}</div>
             </div>
             <div class="metric-box">
-                <div class="metric-label">Your Score</div>
+                <div class="metric-label">내 점수</div>
                 <div class="metric-value">{score_text}</div>
             </div>
             <div class="metric-box">
-                <div class="metric-label">Best Stable Score</div>
+                <div class="metric-label">최고 안정 점수</div>
                 <div class="metric-value">{best_text}</div>
             </div>
             <div class="metric-box">
-                <div class="metric-label">GS Target</div>
+                <div class="metric-label">GS 정답</div>
                 <div class="metric-value">{target_text}</div>
             </div>
         </div>
@@ -611,16 +635,16 @@ def render_metrics(matching, men_prefs, women_prefs, best_score=None, gs_target=
 
 
 def render_blocking_pair_details(blocking_pairs):
-    st.markdown("**Blocking pairs found:**")
+    st.markdown("**발견된 blocking pair:**")
     for bp in blocking_pairs:
         st.markdown(
             f"""
             <div class="feedback-card fail" style="margin-bottom:0.6rem;">
                 <span class="pill pill-red">{esc(bp["man"])} ↔ {esc(bp["woman"])}</span><br/>
-                {esc(bp["man"])} currently has {esc(bp["man_current"])} as rank #{bp["man_current_rank"]},
-                but prefers {esc(bp["woman"])} as rank #{bp["man_new_rank"]}.<br/>
-                {esc(bp["woman"])} currently has {esc(bp["woman_current"])} as rank #{bp["woman_current_rank"]},
-                but prefers {esc(bp["man"])} as rank #{bp["woman_new_rank"]}.
+                {esc(bp["man"])}은/는 현재 상대 {esc(bp["man_current"])}을/를 #{bp["man_current_rank"]}순위로 생각하지만,
+                {esc(bp["woman"])}을/를 #{bp["man_new_rank"]}순위로 더 선호합니다.<br/>
+                {esc(bp["woman"])}은/는 현재 상대 {esc(bp["woman_current"])}을/를 #{bp["woman_current_rank"]}순위로 생각하지만,
+                {esc(bp["man"])}을/를 #{bp["woman_new_rank"]}순위로 더 선호합니다.
             </div>
             """,
             unsafe_allow_html=True,
@@ -633,7 +657,7 @@ def evaluate_submission(stage, matching, men, women, men_prefs, women_prefs):
         return {
             "ok": False,
             "kind": "incomplete",
-            "title": "Not a complete one-to-one matching",
+            "title": "완전한 1:1 매칭이 아닙니다",
             "message": message,
             "blocking_pairs": [],
             "score": None,
@@ -653,8 +677,8 @@ def evaluate_submission(stage, matching, men, women, men_prefs, women_prefs):
             return {
                 "ok": True,
                 "kind": "stable",
-                "title": "Success! This is a stable matching.",
-                "message": "No blocking pair exists.",
+                "title": "성공! 안정 매칭입니다.",
+                "message": "Blocking pair가 하나도 없습니다.",
                 "blocking_pairs": [],
                 "score": score,
                 "best_score": best_score,
@@ -665,8 +689,8 @@ def evaluate_submission(stage, matching, men, women, men_prefs, women_prefs):
         return {
             "ok": False,
             "kind": "blocking",
-            "title": "Unstable matching",
-            "message": "At least one blocking pair exists.",
+            "title": "불안정한 매칭입니다",
+            "message": "Blocking pair가 존재합니다.",
             "blocking_pairs": blocking_pairs,
             "score": score,
             "best_score": best_score,
@@ -680,8 +704,8 @@ def evaluate_submission(stage, matching, men, women, men_prefs, women_prefs):
             return {
                 "ok": False,
                 "kind": "blocking",
-                "title": "Not stable yet",
-                "message": "Stage 2 requires stability first. Remove every blocking pair before optimizing score.",
+                "title": "아직 안정 매칭이 아닙니다",
+                "message": "2단계에서는 먼저 blocking pair를 모두 없앤 뒤, 그중 가장 높은 만족도 점수를 찾아야 합니다.",
                 "blocking_pairs": blocking_pairs,
                 "score": score,
                 "best_score": best_score,
@@ -694,8 +718,8 @@ def evaluate_submission(stage, matching, men, women, men_prefs, women_prefs):
             return {
                 "ok": True,
                 "kind": "optimal",
-                "title": "Perfect! This is an optimal stable matching.",
-                "message": f"Your score is {score}, which matches the best stable score.",
+                "title": "완벽합니다! 최적 안정 매칭입니다.",
+                "message": f"내 점수 {score}점이 가능한 최고 안정 점수와 같습니다.",
                 "blocking_pairs": [],
                 "score": score,
                 "best_score": best_score,
@@ -707,8 +731,8 @@ def evaluate_submission(stage, matching, men, women, men_prefs, women_prefs):
         return {
             "ok": False,
             "kind": "stable_not_optimal",
-            "title": "Stable, but not optimal",
-            "message": f"Your matching is stable, but its score is {score}. The best stable score is {best_score}.",
+            "title": "안정적이지만 최적은 아닙니다",
+            "message": f"현재 매칭은 안정적이지만 점수는 {score}점입니다. 가능한 최고 안정 점수는 {best_score}점입니다.",
             "blocking_pairs": [],
             "score": score,
             "best_score": best_score,
@@ -722,8 +746,8 @@ def evaluate_submission(stage, matching, men, women, men_prefs, women_prefs):
             return {
                 "ok": True,
                 "kind": "gs_correct",
-                "title": "Correct! You predicted the Gale-Shapley outcome.",
-                "message": "This is exactly the men-proposing Gale-Shapley result.",
+                "title": "정답입니다! Gale-Shapley 결과를 맞혔습니다.",
+                "message": "이 매칭은 남성 제안형 Gale-Shapley 알고리즘의 결과와 정확히 같습니다.",
                 "blocking_pairs": blocking_pairs,
                 "score": score,
                 "best_score": best_score,
@@ -735,8 +759,8 @@ def evaluate_submission(stage, matching, men, women, men_prefs, women_prefs):
         return {
             "ok": False,
             "kind": "gs_wrong",
-            "title": "Not the Gale-Shapley result",
-            "message": "Your matching may or may not be stable, but it is not the men-proposing Gale-Shapley outcome.",
+            "title": "Gale-Shapley 결과와 다릅니다",
+            "message": "현재 매칭이 안정적일 수도 있지만, 남성 제안형 Gale-Shapley 알고리즘의 결과는 아닙니다.",
             "blocking_pairs": blocking_pairs,
             "score": score,
             "best_score": best_score,
@@ -767,8 +791,8 @@ def render_feedback(result):
         st.markdown(
             f"""
             <div class="feedback-card info">
-                <span class="pill pill-blue">Your Score: {result["score"]}</span>
-                <span class="pill pill-green">Best Stable Score: {result["best_score"]}</span>
+                <span class="pill pill-blue">내 점수: {result["score"]}</span>
+                <span class="pill pill-green">최고 안정 점수: {result["best_score"]}</span>
             </div>
             """,
             unsafe_allow_html=True,
@@ -780,26 +804,26 @@ def render_solution_panel(stage, result):
         return
 
     if stage in [1, 2]:
-        label = "Show one best stable matching"
+        label = "최적 안정 매칭 보기"
         if st.button(label, use_container_width=True):
             st.session_state.show_solution = not st.session_state.show_solution
 
         if st.session_state.show_solution and result.get("best_matching"):
-            st.info(f"Best stable matching: {explain_matching(result['best_matching'])}")
-            st.info(f"Best stable score: {result['best_score']}")
+            st.info(f"최적 안정 매칭: {explain_matching(result['best_matching'])}")
+            st.info(f"최고 안정 점수: {result['best_score']}")
 
     if stage == 3:
-        if st.button("Show Gale-Shapley result and process", use_container_width=True):
+        if st.button("Gale-Shapley 결과와 과정 보기", use_container_width=True):
             st.session_state.show_solution = not st.session_state.show_solution
 
         if st.session_state.show_solution:
-            st.info(f"Gale-Shapley result: {explain_matching(result['gs_matching'])}")
+            st.info(f"Gale-Shapley 결과: {explain_matching(result['gs_matching'])}")
             log_html = "<br/>".join(esc(line) for line in result["gs_log"])
             st.markdown(f'<div class="gs-log">{log_html}</div>', unsafe_allow_html=True)
 
 
 def render_hint(stage, men, women, men_prefs, women_prefs, matching):
-    if st.button("Hint", use_container_width=True):
+    if st.button("힌트", use_container_width=True):
         st.session_state.show_hint = not st.session_state.show_hint
 
     if not st.session_state.show_hint:
@@ -808,34 +832,34 @@ def render_hint(stage, men, women, men_prefs, women_prefs, matching):
     complete, _ = is_complete_one_to_one(matching, men, women)
 
     if not complete:
-        st.warning("First, make a complete one-to-one matching. No woman should be selected twice.")
+        st.warning("먼저 완전한 1:1 매칭을 만들어보세요. 같은 사람이 두 번 선택되면 안 됩니다.")
 
     elif stage in [1, 2]:
         blocking_pairs = find_blocking_pairs(matching, men_prefs, women_prefs)
         if blocking_pairs:
             bp = blocking_pairs[0]
             st.warning(
-                f"Look carefully at {bp['man']} and {bp['woman']}. "
-                f"They may both prefer each other over their current partners."
+                f"{bp['man']}와 {bp['woman']}을/를 유심히 보세요. "
+                f"두 사람이 서로 현재 파트너보다 상대방을 더 선호할 수 있습니다."
             )
         else:
             if stage == 1:
-                st.success("This already looks stable. Submit it!")
+                st.success("이미 안정 매칭으로 보입니다. 제출해보세요!")
             else:
                 best_matching, best_score, _ = find_best_stable_matching(men, women, men_prefs, women_prefs)
                 score = satisfaction_score(matching, men_prefs, women_prefs)
                 if score == best_score:
-                    st.success("This looks stable and optimal. Submit it!")
+                    st.success("안정적이면서 최적인 매칭으로 보입니다. 제출해보세요!")
                 else:
                     st.info(
-                        "This is stable, but there may be a more satisfying stable matching. "
-                        "Try improving the total score without creating a blocking pair."
+                        "현재 매칭은 안정적이지만, 더 높은 만족도 점수를 가진 안정 매칭이 있을 수 있습니다. "
+                        "Blocking pair를 만들지 않으면서 점수를 높여보세요."
                     )
 
     else:
         st.info(
-            "In men-proposing Gale-Shapley, each man proposes down his preference list, "
-            "while each woman keeps only her favorite proposal so far."
+            "남성 제안형 Gale-Shapley에서는 남성들이 자신의 선호 순서대로 제안하고, "
+            "여성은 지금까지 받은 제안 중 가장 선호하는 사람만 임시로 보류합니다."
         )
 
 
@@ -843,19 +867,22 @@ def render_game():
     stage = st.session_state.stage
     info = STAGE_INFO[stage]
 
-    top1, top2, top3, top4 = st.columns([1.1, 1, 1, 1])
+    top1, top2, top3, top4, top5 = st.columns([0.9, 1.1, 1.3, 0.8, 1.2])
     with top1:
-        if st.button("← Home", use_container_width=True):
+        if st.button("← 홈", use_container_width=True):
             back_home()
     with top2:
-        if st.button("New Puzzle", use_container_width=True):
+        if st.button("새 퍼즐", use_container_width=True):
             new_puzzle()
     with top3:
-        n = st.selectbox("Size", [3, 4, 5, 6], index=[3, 4, 5, 6].index(st.session_state.n), label_visibility="collapsed")
+        if st.button("선호도 랜덤 변경", use_container_width=True):
+            reshuffle_preferences()
+    with top4:
+        n = st.selectbox("인원", [3, 4, 5, 6], index=[3, 4, 5, 6].index(st.session_state.n), label_visibility="collapsed")
         if n != st.session_state.n:
             st.session_state.n = n
             new_puzzle()
-    with top4:
+    with top5:
         st.markdown(
             f'<span class="pill pill-blue">{esc(info["title"])}</span>',
             unsafe_allow_html=True,
@@ -873,13 +900,18 @@ def render_game():
 
     render_stage_explanation(stage)
 
-    men, women, men_prefs, women_prefs = generate_preferences(st.session_state.n, seed=st.session_state.seed)
+    men, women, men_prefs, women_prefs = generate_preferences(
+        st.session_state.n,
+        seed=st.session_state.pref_seed,
+        name_seed=st.session_state.name_seed,
+    )
 
     matching = get_matching_from_widgets(men, women)
     last_result = None
 
     highlighted_men, highlighted_women = set(), set()
-    if "last_result" in st.session_state and st.session_state.get("last_seed") == st.session_state.seed:
+    result_key = (st.session_state.pref_seed, st.session_state.name_seed)
+    if "last_result" in st.session_state and st.session_state.get("last_seed_key") == result_key:
         last_result = st.session_state["last_result"]
         for bp in last_result.get("blocking_pairs", []):
             highlighted_men.add(bp["man"])
@@ -896,35 +928,29 @@ def render_game():
         best_matching, best_score, _ = find_best_stable_matching(men, women, men_prefs, women_prefs)
         gs_matching, gs_log = gale_shapley_men_propose(men, women, men_prefs, women_prefs)
 
-        st.markdown('<div class="section-title">Status</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">상태</div>', unsafe_allow_html=True)
         render_metrics(matching, men_prefs, women_prefs, best_score=best_score, gs_target=gs_matching if stage == 3 else None)
 
         submit_col, clear_col = st.columns(2)
         with submit_col:
-            if st.button("Submit", type="primary", use_container_width=True):
+            if st.button("제출", type="primary", use_container_width=True):
                 result = evaluate_submission(stage, matching, men, women, men_prefs, women_prefs)
                 st.session_state.last_result = result
-                st.session_state.last_seed = st.session_state.seed
+                st.session_state.last_seed_key = result_key
                 st.session_state.submitted = True
                 st.session_state.show_solution = False
                 st.rerun()
 
         with clear_col:
-            if st.button("Reset choices", use_container_width=True):
-                for m in men:
-                    key = f"match_{stage}_{st.session_state.seed}_{m}"
-                    if key in st.session_state:
-                        del st.session_state[key]
-                st.session_state.submitted = False
-                st.session_state.show_solution = False
-                st.session_state.show_hint = False
+            if st.button("선택 초기화", use_container_width=True):
+                clear_choice_state()
                 st.rerun()
 
-        st.markdown('<div class="section-title">Help</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">도움말</div>', unsafe_allow_html=True)
         render_hint(stage, men, women, men_prefs, women_prefs, matching)
 
-        if st.session_state.get("submitted") and st.session_state.get("last_seed") == st.session_state.seed:
-            st.markdown('<div class="section-title">Result</div>', unsafe_allow_html=True)
+        if st.session_state.get("submitted") and st.session_state.get("last_seed_key") == result_key:
+            st.markdown('<div class="section-title">결과</div>', unsafe_allow_html=True)
             result = st.session_state["last_result"]
             render_feedback(result)
             render_solution_panel(stage, result)
