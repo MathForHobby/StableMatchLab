@@ -473,32 +473,29 @@ def render_person_card(name: str, prefs: list[str], danger: bool = False, side: 
     danger_class = " danger" if danger else ""
     avatar = "👨‍🔬" if side == "M" else "👩‍🔬"
 
-    rows = []
-    for idx, partner in enumerate(prefs, start=1):
-        rows.append(
-            f"""
-            <div class="pref-row">
-                <div class="rank-dot">{rank_badge(idx)}</div>
-                <div>{esc(partner)}</div>
-            </div>
-            """
-        )
-
-    st.markdown(
-        f"""
-        <div class="person-card{danger_class}">
-            <div class="person-head">
-                <div class="person-name">{esc(name)}</div>
-                <div class="avatar">{avatar}</div>
-            </div>
-            <div class="pref-list">
-                {''.join(rows)}
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
+    rows = "".join(
+        [
+            (
+                f'<div class="pref-row">'
+                f'<div class="rank-dot">{rank_badge(idx)}</div>'
+                f'<div>{esc(partner)}</div>'
+                f'</div>'
+            )
+            for idx, partner in enumerate(prefs, start=1)
+        ]
     )
 
+    card_html = (
+        f'<div class="person-card{danger_class}">'
+        f'<div class="person-head">'
+        f'<div class="person-name">{esc(name)}</div>'
+        f'<div class="avatar">{avatar}</div>'
+        f'</div>'
+        f'<div class="pref-list">{rows}</div>'
+        f'</div>'
+    )
+
+    st.markdown(card_html, unsafe_allow_html=True)
 
 def render_preferences(men, women, men_prefs, women_prefs, highlighted_men=None, highlighted_women=None):
     highlighted_men = highlighted_men or set()
