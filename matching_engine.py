@@ -7,12 +7,47 @@ Matching = Dict[str, str]
 Preferences = Dict[str, List[str]]
 
 
-def generate_preferences(n: int, seed: int | None = None) -> Tuple[List[str], List[str], Preferences, Preferences]:
-    """Generate random complete preference rankings for a balanced two-sided matching problem."""
+MALE_KOREAN_NAMES = [
+    "민준", "서준", "도윤", "예준", "시우", "하준", "주원", "지호",
+    "지후", "준우", "현우", "도현", "건우", "우진", "선우", "유준",
+    "은우", "연우", "이준", "지안"
+]
+
+FEMALE_KOREAN_NAMES = [
+    "서연", "서윤", "지우", "하은", "민서", "지유", "윤서", "채원",
+    "수아", "지아", "지민", "은서", "예은", "다은", "하윤", "소율",
+    "예린", "유나", "나은", "서현"
+]
+
+
+def generate_people(n: int, seed: int | None = None) -> Tuple[List[str], List[str]]:
+    """Generate Korean display names for both sides."""
     rng = random.Random(seed)
 
-    men = [f"M{i+1}" for i in range(n)]
-    women = [f"W{i+1}" for i in range(n)]
+    if n > len(MALE_KOREAN_NAMES) or n > len(FEMALE_KOREAN_NAMES):
+        raise ValueError("n is larger than the prepared Korean name pool.")
+
+    men = rng.sample(MALE_KOREAN_NAMES, n)
+    women = rng.sample(FEMALE_KOREAN_NAMES, n)
+
+    return men, women
+
+
+def generate_preferences(
+    n: int,
+    seed: int | None = None,
+    name_seed: int | None = None,
+) -> Tuple[List[str], List[str], Preferences, Preferences]:
+    """
+    Generate random complete preference rankings for a balanced two-sided matching problem.
+
+    - name_seed controls the Korean names.
+    - seed controls the preference order.
+    This lets the UI reshuffle preferences while keeping the same people.
+    """
+    rng = random.Random(seed)
+
+    men, women = generate_people(n, seed=name_seed)
 
     men_prefs: Preferences = {}
     women_prefs: Preferences = {}
@@ -41,19 +76,19 @@ def make_rankings(prefs: Preferences) -> Dict[str, Dict[str, int]]:
 def is_complete_one_to_one(matching: Matching, men: List[str], women: List[str]) -> Tuple[bool, str]:
     """Check whether every man is matched to a distinct woman."""
     if set(matching.keys()) != set(men):
-        return False, "Every participant on the left side must be matched."
+        return False, "왼쪽 그룹의 모든 사람이 매칭되어야 합니다."
 
     selected = list(matching.values())
     if any(w not in women for w in selected):
-        return False, "Some selected partners are invalid."
+        return False, "선택한 상대 중 올바르지 않은 항목이 있습니다."
 
     if len(selected) != len(women):
-        return False, "The matching is incomplete."
+        return False, "아직 매칭되지 않은 사람이 있습니다."
 
     if len(set(selected)) != len(selected):
-        return False, "One participant on the right side is matched more than once."
+        return False, "오른쪽 그룹의 한 사람이 두 번 이상 매칭되었습니다."
 
-    return True, "Complete one-to-one matching."
+    return True, "완전한 1:1 매칭입니다."
 
 
 def invert_matching(matching: Matching) -> Dict[str, str]:
@@ -186,27 +221,27 @@ def gale_shapley_men_propose(
         m = free_men.pop(0)
 
         if next_choice_index[m] >= len(women):
-            log.append(f"{m} has proposed to everyone and remains unmatched.")
+            log.append(f"{m}은/는 모든 사람에게 제안했지만 매칭되지 않았습니다.")
             continue
 
         w = men_prefs[m][next_choice_index[m]]
         next_choice_index[m] += 1
 
-        log.append(f"Round {round_no}: {m} proposes to {w}.")
+        log.append(f"{round_no}단계: {m}이/가 {w}에게 제안합니다.")
 
         if w not in held_by_woman:
             held_by_woman[w] = m
-            log.append(f"{w} is free, so {w} tentatively accepts {m}.")
+            log.append(f"{w}은/는 아직 제안을 보류 중인 상대가 없으므로 {m}의 제안을 임시로 받아들입니다.")
         else:
             current_m = held_by_woman[w]
 
             if women_rank[w][m] < women_rank[w][current_m]:
                 held_by_woman[w] = m
                 free_men.append(current_m)
-                log.append(f"{w} prefers {m} over {current_m}, so {w} keeps {m} and rejects {current_m}.")
+                log.append(f"{w}은/는 {current_m}보다 {m}을/를 더 선호하므로 {m}을/를 보류하고 {current_m}을/를 거절합니다.")
             else:
                 free_men.append(m)
-                log.append(f"{w} prefers current partner {current_m}, so {w} rejects {m}.")
+                log.append(f"{w}은/는 현재 보류 중인 {current_m}을/를 더 선호하므로 {m}을/를 거절합니다.")
 
         round_no += 1
 
